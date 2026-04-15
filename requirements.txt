@@ -1,0 +1,14 @@
+streamlit
+yfinance
+requests
+matplotlib
+fpdf
+openai
+python-dotenv
+pandas
+streamlit
+openai
+yfinance
+python-dotenv
+requests
+matplotlib
