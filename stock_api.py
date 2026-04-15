@@ -4,16 +4,20 @@ def get_stock_data(symbol):
     try:
         symbol = symbol.strip().upper()
 
-        # Auto add .NS
         if "." not in symbol:
             symbol = symbol + ".NS"
 
         stock = yf.Ticker(symbol)
 
-        # 🔹 Try fetching data
+        # 🔹 Try multiple periods (important fix)
         data = stock.history(period="6mo")
 
-        # 🔹 Fallback if empty
+        if data.empty:
+            data = stock.history(period="3mo")
+
+        if data.empty:
+            data = stock.history(period="1mo")
+
         if data.empty:
             return None, None
 
