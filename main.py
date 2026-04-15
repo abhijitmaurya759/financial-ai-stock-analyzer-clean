@@ -26,6 +26,7 @@ if st.button("Analyze"):
             symbol = symbol_input
 
         st.write(f"🔍 Analyzing: **{symbol_input}**")
+        st.write(f"DEBUG symbol sent: {symbol}")
 
         # 📊 Fetch stock data
         with st.spinner("Fetching stock data..."):
@@ -72,7 +73,7 @@ if st.button("Analyze"):
             # 📄 Report
             if analysis and news:
                 try:
-                    create_report(symbol_input, analysis, news)
+                    create_report(symbol_input, stock_data, analysis, news)
                     st.success("📄 Report generated successfully")
                 except Exception as e:
                     st.error(f"Report Error: {e}")

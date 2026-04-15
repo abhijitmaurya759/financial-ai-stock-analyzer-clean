@@ -1,15 +1,11 @@
 import matplotlib.pyplot as plt
+import streamlit as st
 
-def plot_chart(df, symbol):
+def plot_chart(data, symbol):
+    fig, ax = plt.subplots()
+    ax.plot(data.index, data['Close'])
+    ax.set_title(f"{symbol} Stock Price")
+    ax.set_xlabel("Date")
+    ax.set_ylabel("Price")
 
-    plt.figure()
-
-    plt.plot(df["Close"])
-
-    plt.title(symbol + " Stock Price (6 Months)")
-    plt.xlabel("Date")
-    plt.ylabel("Price")
-
-    plt.savefig("stock_chart.png")
-
-    plt.show()
+    st.pyplot(fig)   # ✅ THIS is required
