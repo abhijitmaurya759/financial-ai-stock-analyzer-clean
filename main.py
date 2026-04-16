@@ -1,4 +1,5 @@
 import streamlit as st
+from datetime import datetime
 from stock_api import get_stock_data
 from news_api import get_news
 from ai_analysis import analyze_news
@@ -9,8 +10,19 @@ st.set_page_config(page_title="Financial AI Stock Analyzer", layout="wide")
 
 st.title("📈 Financial AI Stock Analyzer")
 
+# 🔹 Market Status
+now = datetime.now()
+if 9 <= now.hour < 16:
+    st.success("🟢 Market is Open")
+else:
+    st.info("🔴 Market is Closed (Data may be delayed)")
+
 # User input
 symbol_input = st.text_input("Enter stock name (e.g. RELIANCE, TCS, INFY)")
+
+# Retry button
+if st.button("🔄 Retry"):
+    st.rerun()
 
 if st.button("Analyze"):
 
@@ -26,27 +38,19 @@ if st.button("Analyze"):
             symbol = symbol_input
 
         st.write(f"🔍 Analyzing: **{symbol_input}**")
-        st.write(f"DEBUG symbol sent: {symbol}")
 
         # 📊 Fetch stock data
         with st.spinner("Fetching stock data..."):
             stock_data, company = get_stock_data(symbol)
 
         if stock_data is None:
-            st.error("❌ Invalid stock symbol")
+            st.error("⚠️ Unable to fetch stock data right now. Please try again later.")
         else:
             st.success(f"🏢 Company: {company}")
 
             # 📰 Fetch news
             with st.spinner("Fetching latest news..."):
                 news = get_news(company)
-
-            st.subheader("📰 News Headlines")
-            if news:
-                for n in news:
-                    st.write(f"- {n}")
-            else:
-                st.warning("No news found.")
 
             # 🤖 AI Analysis
             analysis = None
@@ -57,18 +61,38 @@ if st.button("Analyze"):
                 except Exception as e:
                     st.error(f"AI Error: {e}")
 
-            if analysis:
-                st.subheader("🤖 AI Sentiment Analysis")
-                st.write(analysis)
-            else:
-                st.warning("AI analysis not available")
+            # 🔹 Layout (Chart + Analysis side by side)
+            col1, col2 = st.columns(2)
 
-            # 📉 Chart
-            st.subheader("📊 Stock Price Chart")
-            try:
-                plot_chart(stock_data, symbol)
-            except Exception as e:
-                st.error(f"Chart Error: {e}")
+            with col1:
+                st.subheader("📊 Stock Price Chart")
+                try:
+                    plot_chart(stock_data, symbol)
+                except Exception as e:
+                    st.error(f"Chart Error: {e}")
+
+            with col2:
+                st.subheader("🤖 AI Sentiment Analysis")
+                if analysis:
+                    st.write(analysis)
+
+                    # 🔥 Buy/Sell Signal
+                    if "positive" in analysis.lower():
+                        st.success("📈 Suggestion: BUY")
+                    elif "negative" in analysis.lower():
+                        st.error("📉 Suggestion: SELL")
+                    else:
+                        st.warning("⚖️ Suggestion: HOLD")
+                else:
+                    st.warning("AI analysis not available")
+
+            # 📰 News Section
+            st.subheader("📰 News Headlines")
+            if news:
+                for n in news:
+                    st.write(f"- {n}")
+            else:
+                st.warning("No news found.")
 
             # 📄 Report
             if analysis and news:
