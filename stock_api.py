@@ -1,15 +1,17 @@
 import yfinance as yf
 
+
 def get_stock_data(symbol):
     try:
         symbol = symbol.strip().upper()
 
+        # 🔹 Ensure NSE format
         if "." not in symbol:
             symbol = symbol + ".NS"
 
         stock = yf.Ticker(symbol)
 
-        # 🔹 Try multiple periods (important fix)
+        # 🔹 Try multiple periods (fallback strategy)
         data = stock.history(period="6mo")
 
         if data.empty:
@@ -21,11 +23,16 @@ def get_stock_data(symbol):
         if data.empty:
             return None, None
 
-        # 🔹 Safe company name
+        # 🔹 Safer company name (avoid stock.info issues)
+        company = symbol
+
         try:
-            company = stock.info.get("longName", symbol)
+            info = stock.fast_info  # faster & more reliable
+            if hasattr(stock, "info"):
+                company = stock.info.get("longName", symbol)
         except:
-            company = symbol
+            # fallback: clean symbol
+            company = symbol.replace(".NS", "")
 
         return data, company
 
