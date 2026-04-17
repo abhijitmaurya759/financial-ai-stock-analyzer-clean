@@ -8,53 +8,63 @@ from report import create_report
 from stocks import STOCKS
 from utils import retry
 
-st.set_page_config(page_title="Financial AI Stock Analyzer", layout="wide")
+st.set_page_config(page_title="Stock Analyzer Pro", layout="wide")
 
-st.title("📈 Financial AI Stock Analyzer")
+# 🔹 Header
+st.markdown("""
+<h1 style='text-align: center;'>📈 Stock Analyzer Pro</h1>
+<p style='text-align: center; color: grey;'>AI-powered stock insights dashboard</p>
+""", unsafe_allow_html=True)
 
 # 🔹 Market Status
 now = datetime.now()
-if 9 <= now.hour < 16:
-    st.success("🟢 Market is Open")
-else:
-    st.info("🔴 Market is Closed (Data may be delayed)")
+col_status1, col_status2 = st.columns([3,1])
 
-# 🔍 Stock Search
-st.subheader("🔍 Search Stock")
+with col_status1:
+    st.markdown("### 🔍 Search Stock")
 
-search = st.text_input("Type company name (e.g. Tata, Reliance)")
+with col_status2:
+    if 9 <= now.hour < 16:
+        st.success("🟢 Market Open")
+    else:
+        st.warning("🔴 Market Closed")
+
+# 🔍 Search
+search = st.text_input("Search company (e.g. Tata, Reliance)")
 
 selected_symbol = None
 selected_company = None
 
 if search:
-    filtered_stocks = {
-        k: v for k, v in STOCKS.items()
-        if search.lower() in k.lower()
-    }
+    filtered = {k: v for k, v in STOCKS.items() if search.lower() in k.lower()}
 
-    if filtered_stocks:
-        selected_company = st.selectbox("Select Company", list(filtered_stocks.keys()))
-        selected_symbol = filtered_stocks[selected_company]
+    if filtered:
+        selected_company = st.selectbox("Select Company", list(filtered.keys()))
+        selected_symbol = filtered[selected_company]
     else:
         st.warning("No matching stocks found")
 
-# 🔄 Retry button
-if st.button("🔄 Retry"):
-    st.rerun()
+# 🔘 Buttons
+col_btn1, col_btn2 = st.columns(2)
 
-# 🚀 Analyze Button
-if st.button("Analyze"):
+with col_btn1:
+    analyze_clicked = st.button("🚀 Analyze", use_container_width=True)
+
+with col_btn2:
+    if st.button("🔄 Refresh", use_container_width=True):
+        st.rerun()
+
+# 🚀 Main Logic
+if analyze_clicked:
 
     if not selected_symbol:
-        st.warning("Please search and select a stock")
+        st.warning("Please select a stock")
     else:
-        # ✅ Safe symbol formatting
         symbol = selected_symbol if ".NS" in selected_symbol else selected_symbol + ".NS"
 
-        st.write(f"🔍 Analyzing: **{selected_company} ({symbol})**")
+        st.markdown(f"## 📊 {selected_company} ({symbol})")
 
-        # 📊 Fetch stock data (with retry)
+        # 📊 Fetch data
         with st.spinner("Fetching stock data..."):
             result = retry(lambda: get_stock_data(symbol))
 
@@ -64,80 +74,75 @@ if st.button("Analyze"):
             stock_data, company = None, None
 
         if stock_data is None:
-            st.error("⚠️ Unable to fetch stock data. Please try again.")
+            st.error("Failed to fetch stock data")
         else:
-            st.success(f"🏢 Company: {company}")
+            # 🔹 Metrics (NEW - dashboard feel)
+            last_price = stock_data["Close"].iloc[-1]
+            prev_price = stock_data["Close"].iloc[-2]
+            change = last_price - prev_price
+            percent = (change / prev_price) * 100
 
-            # 📰 Fetch news (clean + retry)
-            with st.spinner("Fetching latest news..."):
+            col1, col2, col3 = st.columns(3)
+
+            col1.metric("💰 Price", f"₹{last_price:.2f}")
+            col2.metric("📈 Change", f"{change:.2f}", f"{percent:.2f}%")
+            col3.metric("📊 Data Points", len(stock_data))
+
+            # 📰 News
+            with st.spinner("Fetching news..."):
                 news = retry(lambda: get_news(company))
 
             if not news:
-                news = ["No major news found. Market may be stable."]
+                news = ["No major news available"]
 
-            # 🤖 AI Analysis
-            analysis = None
-            with st.spinner("Running AI analysis..."):
+            # 🤖 AI
+            with st.spinner("Analyzing sentiment..."):
                 try:
                     analysis = analyze_news(news)
-                except Exception as e:
-                    st.error(f"AI Error: {e}")
+                except:
+                    analysis = "AI analysis unavailable"
 
             # 🔹 Layout
-            col1, col2 = st.columns(2)
+            col_chart, col_ai = st.columns([2,1])
 
             # 📊 Chart
-            with col1:
-                st.subheader("📊 Stock Price Chart")
-                try:
-                    if stock_data is not None and not stock_data.empty:
-                        fig = plot_chart(stock_data, symbol)
+            with col_chart:
+                st.subheader("📊 Price Chart")
+                fig = plot_chart(stock_data, symbol)
 
-                        if fig:
-                            st.plotly_chart(fig, use_container_width=True)
-                        else:
-                            st.warning("⚠️ Chart could not be generated")
-                    else:
-                        st.warning("Chart data not available")
-                except Exception as e:
-                    st.error(f"Chart Error: {e}")
+                if fig:
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.warning("Chart not available")
 
-            # 🤖 AI Analysis
-            with col2:
-                st.subheader("🤖 AI Sentiment Analysis")
+            # 🤖 AI Panel
+            with col_ai:
+                st.subheader("🤖 AI Insight")
+
                 if analysis:
                     st.write(analysis)
 
                     if "positive" in analysis.lower():
-                        st.success("📈 Suggestion: BUY")
+                        st.success("📈 BUY")
                     elif "negative" in analysis.lower():
-                        st.error("📉 Suggestion: SELL")
+                        st.error("📉 SELL")
                     else:
-                        st.warning("⚖️ Suggestion: HOLD")
-                else:
-                    st.warning("AI analysis not available")
+                        st.warning("⚖️ HOLD")
 
-            # 📰 News
-            st.subheader("📰 News Headlines")
+            # 📰 News Section
+            st.subheader("📰 Latest News")
+
             for n in news:
-                st.write(f"- {n}")
+                st.markdown(f"- {n}")
 
             # 📄 Report
             if analysis:
-                try:
-                    report_file = create_report(selected_symbol, stock_data, analysis, news)
+                report_file = create_report(selected_symbol, stock_data, analysis, news)
 
-                    st.success("📄 Report generated successfully")
-
-                    with open(report_file, "rb") as file:
-                        st.download_button(
-                            label="📥 Download Report",
-                            data=file,
-                            file_name=report_file,
-                            mime="application/pdf"
-                        )
-
-                except Exception as e:
-                    st.error(f"Report Error: {e}")
-            else:
-                st.warning("Skipping report generation due to missing analysis")
+                with open(report_file, "rb") as f:
+                    st.download_button(
+                        "📥 Download Report",
+                        f,
+                        file_name=report_file,
+                        mime="application/pdf"
+                    )
