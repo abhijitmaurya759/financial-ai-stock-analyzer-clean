@@ -12,3 +12,11 @@ yfinance
 python-dotenv
 requests
 matplotlib
+plotly
+streamlit
+yfinance
+plotly
+fpdf
+requests
+python-dotenv
+openai
