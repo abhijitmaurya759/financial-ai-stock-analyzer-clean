@@ -6,6 +6,7 @@ from ai_analysis import analyze_news
 from chart import plot_chart
 from report import create_report
 from stocks import STOCKS
+from utils import retry
 
 st.set_page_config(page_title="Financial AI Stock Analyzer", layout="wide")
 
@@ -48,51 +49,65 @@ if st.button("Analyze"):
     if not selected_symbol:
         st.warning("Please search and select a stock")
     else:
-        symbol = selected_symbol + ".NS"
+        # ✅ Safe symbol formatting
+        symbol = selected_symbol if ".NS" in selected_symbol else selected_symbol + ".NS"
 
         st.write(f"🔍 Analyzing: **{selected_company} ({symbol})**")
 
-        # 📊 Fetch stock data
+        # 📊 Fetch stock data (with retry)
         with st.spinner("Fetching stock data..."):
-            stock_data, company = get_stock_data(symbol)
+            result = retry(lambda: get_stock_data(symbol))
+
+        if result:
+            stock_data, company = result
+        else:
+            stock_data, company = None, None
 
         if stock_data is None:
-            st.error("⚠️ Unable to fetch stock data right now. Please try again later.")
+            st.error("⚠️ Unable to fetch stock data. Please try again.")
         else:
             st.success(f"🏢 Company: {company}")
 
-            # 📰 Fetch news
+            # 📰 Fetch news (clean + retry)
             with st.spinner("Fetching latest news..."):
-                news = get_news(company)
+                news = retry(lambda: get_news(company))
+
+            if not news:
+                news = ["No major news found. Market may be stable."]
 
             # 🤖 AI Analysis
             analysis = None
             with st.spinner("Running AI analysis..."):
                 try:
-                    if news:
-                        analysis = analyze_news(news)
-                    else:
-                        analysis = "No news available for sentiment analysis."
+                    analysis = analyze_news(news)
                 except Exception as e:
                     st.error(f"AI Error: {e}")
 
-            # 🔹 Layout (Chart + Analysis)
+            # 🔹 Layout
             col1, col2 = st.columns(2)
 
+            # 📊 Chart
             with col1:
                 st.subheader("📊 Stock Price Chart")
                 try:
-                    fig = plot_chart(stock_data, symbol)
-                    st.plotly_chart(fig, use_container_width=True)
+                    if stock_data is not None and not stock_data.empty:
+                        fig = plot_chart(stock_data, symbol)
+
+                        if fig:
+                            st.plotly_chart(fig, use_container_width=True)
+                        else:
+                            st.warning("⚠️ Chart could not be generated")
+                    else:
+                        st.warning("Chart data not available")
                 except Exception as e:
                     st.error(f"Chart Error: {e}")
 
+            # 🤖 AI Analysis
             with col2:
                 st.subheader("🤖 AI Sentiment Analysis")
                 if analysis:
                     st.write(analysis)
 
-                    # 🔥 Buy/Sell Suggestion
                     if "positive" in analysis.lower():
                         st.success("📈 Suggestion: BUY")
                     elif "negative" in analysis.lower():
@@ -102,16 +117,13 @@ if st.button("Analyze"):
                 else:
                     st.warning("AI analysis not available")
 
-            # 📰 News Section
+            # 📰 News
             st.subheader("📰 News Headlines")
-            if news:
-                for n in news:
-                    st.write(f"- {n}")
-            else:
-                st.info("📰 No recent news found. Try again later.")
+            for n in news:
+                st.write(f"- {n}")
 
-            # 📄 Report Generation + Download
-            if analysis and news:
+            # 📄 Report
+            if analysis:
                 try:
                     report_file = create_report(selected_symbol, stock_data, analysis, news)
 
@@ -128,4 +140,4 @@ if st.button("Analyze"):
                 except Exception as e:
                     st.error(f"Report Error: {e}")
             else:
-                st.warning("Skipping report generation due to missing data")
+                st.warning("Skipping report generation due to missing analysis")

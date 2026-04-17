@@ -1,43 +1,76 @@
 from fpdf import FPDF
 import matplotlib.pyplot as plt
+import os
+
+# 🔹 Universal text cleaner (fixes ALL encoding issues)
+def clean_text(text):
+    if not isinstance(text, str):
+        text = str(text)
+    return text.encode("latin-1", "replace").decode("latin-1")
+
 
 def create_report(symbol, data, analysis, news):
 
-    # Create chart image
-    plt.figure()
+    # 🔹 Safe filenames
+    symbol_clean = clean_text(symbol)
+    chart_file = f"{symbol_clean}_chart.png"
+    pdf_file = f"{symbol_clean}_report.pdf"
+
+    # 🔹 Create chart
+    plt.figure(figsize=(8, 4))
     plt.plot(data["Close"])
-    plt.title(symbol + " Stock Price (6 Months)")
+    plt.title(f"{symbol_clean} Stock Price (6 Months)")
     plt.xlabel("Date")
     plt.ylabel("Price")
-    plt.savefig("chart.png")
+    plt.tight_layout()
+    plt.savefig(chart_file)
     plt.close()
 
+    # 🔹 Create PDF
     pdf = FPDF()
     pdf.add_page()
 
-    pdf.set_font("Arial", size=16)
-    pdf.cell(200,10,"Financial Analysis Report",ln=True,align="C")
-
-    pdf.set_font("Arial", size=12)
-    pdf.cell(200,10,"Stock: " + symbol,ln=True)
-
-    pdf.cell(200,10,"Stock Chart:",ln=True)
-    pdf.image("chart.png", x=10, w=180)
-
-    pdf.ln(10)
-
-    pdf.cell(200,10,"Latest News:",ln=True)
-    for n in news:
-        pdf.multi_cell(0,8,"- " + n)
+    # 🔹 Title
+    pdf.set_font("Arial", "B", 16)
+    pdf.cell(0, 10, clean_text("Financial Analysis Report"), ln=True, align="C")
 
     pdf.ln(5)
 
-    analysis = analysis.encode("latin-1","replace").decode("latin-1")
+    # 🔹 Stock name
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, clean_text(f"Stock: {symbol_clean}"), ln=True)
 
-    pdf.cell(200,10,"AI Analysis:",ln=True)
-    pdf.multi_cell(0,8,analysis)
+    pdf.ln(5)
 
-    filename = f"{symbol}_report.pdf"
-    pdf.output(filename)
+    # 🔹 Chart
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, clean_text("Stock Chart:"), ln=True)
+    pdf.image(chart_file, x=10, w=180)
 
-    return filename
+    pdf.ln(5)
+
+    # 🔹 News
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, clean_text("Latest News:"), ln=True)
+
+    pdf.set_font("Arial", size=10)
+    for n in news:
+        pdf.multi_cell(0, 8, "- " + clean_text(n))
+
+    pdf.ln(5)
+
+    # 🔹 Analysis
+    pdf.set_font("Arial", "B", 12)
+    pdf.cell(0, 10, clean_text("AI Analysis:"), ln=True)
+
+    pdf.set_font("Arial", size=10)
+    pdf.multi_cell(0, 8, clean_text(analysis))
+
+    # 🔹 Save PDF
+    pdf.output(pdf_file)
+
+    # 🔹 Cleanup temp chart
+    if os.path.exists(chart_file):
+        os.remove(chart_file)
+
+    return pdf_file
